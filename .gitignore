@@ -1,0 +1,47 @@
+# Compiled object files
+*.o
+*.a
+*.so
+*.out
+*.obj
+*.lo
+
+# Compiled executables
+*.exe
+*.out
+*.app
+*.dSYM/
+
+# Backup files
+*~
+*.bak
+*.swp
+*.swo
+
+# Dependency files
+*.d
+
+# IDE-specific files
+# Eclipse
+.project
+.cproject
+.settings/
+
+# Visual Studio Code
+.vscode/
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+
+# MacOS specific files
+.DS_Store
+
+# Windows specific files
+Thumbs.db
+
+# CMake build directory
+/build/
+
+# Other temporary files
+*.log
