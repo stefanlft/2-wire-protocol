@@ -20,11 +20,12 @@ struct data_link_t {
 void data_link_init(struct data_link_t *c, FILE *in, FILE *out);
 int stream_has_data(FILE *stream);
 
-uint8_t twp_set_seq_num(struct data_link_t *data_link, struct Packet *packet);
-uint8_t twp_set_checksum(struct data_link_t *data_link, struct Packet *packet);
+uint8_t twp_set_seq_num(struct data_link_t *data_link, struct packet_t *packet);
+uint8_t twp_set_checksum(struct data_link_t *data_link,
+                         struct packet_t *packet);
 
-uint8_t twp_send(struct data_link_t *data_link, struct Packet *packet);
-uint8_t twp_recv_raw(struct data_link_t *data_link, struct Packet *packet);
-uint8_t twp_recv_wait(struct data_link_t *data_link, struct Packet *packet);
+uint8_t twp_send(struct data_link_t *data_link, struct packet_t *packet);
+uint8_t twp_recv_raw(struct data_link_t *data_link, struct packet_t *packet);
+uint8_t twp_recv_wait(struct data_link_t *data_link, struct packet_t *packet);
 
 #endif

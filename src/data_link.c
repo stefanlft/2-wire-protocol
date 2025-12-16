@@ -16,18 +16,20 @@ int stream_has_data(FILE *stream) {
     return 1; // Data available
 }
 
-uint8_t twp_set_seq_num(struct data_link_t *data_link, struct Packet *packet) {
+uint8_t twp_set_seq_num(struct data_link_t *data_link,
+                        struct packet_t *packet) {
     packet->seq_num = data_link->seq_num++;
     return STATUS_OK;
 }
 
-uint8_t twp_set_checksum(struct data_link_t *data_link, struct Packet *packet) {
+uint8_t twp_set_checksum(struct data_link_t *data_link,
+                         struct packet_t *packet) {
     packet->checksum = crc32(0L, (const Bytef *)packet->data, packet->length);
 
     return STATUS_OK;
 }
 
-uint8_t twp_send(struct data_link_t *data_link, struct Packet *packet) {
+uint8_t twp_send(struct data_link_t *data_link, struct packet_t *packet) {
     if (twp_set_seq_num(data_link, packet) != STATUS_OK) {
         return STATUS_ERR_NO_SEQ_NUM;
     }
@@ -57,7 +59,7 @@ uint8_t twp_send(struct data_link_t *data_link, struct Packet *packet) {
     return STATUS_OK;
 }
 
-uint8_t twp_recv_raw(struct data_link_t *data_link, struct Packet *packet) {
+uint8_t twp_recv_raw(struct data_link_t *data_link, struct packet_t *packet) {
     if (!stream_has_data(data_link->input_stream)) {
         return STATUS_ERR_NO_DATA;
     }
@@ -94,7 +96,7 @@ uint8_t twp_recv_raw(struct data_link_t *data_link, struct Packet *packet) {
     return STATUS_OK;
 }
 
-static uint8_t check_addr(struct data_link_t *data_link, struct Packet *pkt) {
+static uint8_t check_addr(struct data_link_t *data_link, struct packet_t *pkt) {
     if (pkt->receiver_address == BROADCAST_ADDRESS ||
         pkt->receiver_address == LOOPBACK_ADDRESS ||
         pkt->receiver_address == data_link->node_address) {
@@ -103,7 +105,7 @@ static uint8_t check_addr(struct data_link_t *data_link, struct Packet *pkt) {
     return 0;
 }
 
-uint8_t twp_recv_wait(struct data_link_t *data_link, struct Packet *packet) {
+uint8_t twp_recv_wait(struct data_link_t *data_link, struct packet_t *packet) {
     uint8_t err = STATUS_OK;
     do {
         err = twp_recv_raw(data_link, packet);

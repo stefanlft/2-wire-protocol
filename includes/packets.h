@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-struct __attribute__((packed)) Packet {
+struct __attribute__((packed)) packet_t {
     uint8_t sender_address;   // Address of the sender
     uint8_t receiver_address; // Address of the sender
     uint8_t packet_type;      // Packet type identifier

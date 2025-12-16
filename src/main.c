@@ -2,7 +2,6 @@
 #include "../includes/packets.h"
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 #include <zlib.h>
 
 int main(int argc, char **argv) {
@@ -19,7 +18,7 @@ int main(int argc, char **argv) {
                                     .output_stream = output_stream,
                                     .seq_num = 0};
 
-    struct Packet packet_out;
+    struct packet_t packet_out;
     packet_out.receiver_address = 0x03;
     packet_out.packet_type = 0;
     uint8_t message[] = "addr match";
@@ -28,7 +27,7 @@ int main(int argc, char **argv) {
 
     printf("send: %d\n", twp_send(&data_link, &packet_out));
 
-    struct Packet packet_in;
+    struct packet_t packet_in;
     printf("recv: %d\n", twp_recv_wait(&data_link, &packet_in));
 
     printf("%s\n", packet_in.data);
