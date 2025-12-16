@@ -14,7 +14,7 @@ struct data_link_t {
     FILE *output_stream;
 
     uint8_t seq_num;
-    uint8_t address;
+    uint8_t node_address;
 };
 
 void data_link_init(struct data_link_t *c, FILE *in, FILE *out);

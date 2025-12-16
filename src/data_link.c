@@ -36,7 +36,7 @@ uint8_t twp_send(struct data_link_t *data_link, struct Packet *packet) {
         return STATUS_ERR_CHECKSUM;
     }
 
-    packet->sender_address = data_link->address;
+    packet->sender_address = data_link->node_address;
 
     fwrite(&packet->sender_address, sizeof(packet->sender_address), 1,
            data_link->output_stream);
@@ -87,6 +87,7 @@ uint8_t twp_recv_raw(struct data_link_t *data_link, struct Packet *packet) {
         crc32(0L, (const Bytef *)packet->data, packet->length);
 
     if (packet->checksum != expected_checksum) {
+        free(packet->data);
         return STATUS_ERR_CHECKSUM_MISMATCH;
     }
 
@@ -96,7 +97,7 @@ uint8_t twp_recv_raw(struct data_link_t *data_link, struct Packet *packet) {
 static uint8_t check_addr(struct data_link_t *data_link, struct Packet *pkt) {
     if (pkt->receiver_address == BROADCAST_ADDRESS ||
         pkt->receiver_address == LOOPBACK_ADDRESS ||
-        pkt->receiver_address == data_link->address) {
+        pkt->receiver_address == data_link->node_address) {
         return 1;
     }
     return 0;

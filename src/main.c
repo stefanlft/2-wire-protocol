@@ -14,17 +14,17 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    struct data_link_t data_link = {.address = 0x01,
+    struct data_link_t data_link = {.node_address = 0x02,
                                     .input_stream = input_stream,
                                     .output_stream = output_stream,
                                     .seq_num = 0};
 
     struct Packet packet_out;
-    packet_out.receiver_address = 0x01;
+    packet_out.receiver_address = 0x03;
     packet_out.packet_type = 0;
-    uint8_t message[] = "HELLO THERE!";
+    uint8_t message[] = "addr match";
     packet_out.data = message;
-    packet_out.length = strlen((const char *)message);
+    packet_out.length = sizeof(message);
 
     printf("send: %d\n", twp_send(&data_link, &packet_out));
 

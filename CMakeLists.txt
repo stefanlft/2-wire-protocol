@@ -42,6 +42,8 @@ file(GLOB_RECURSE ALL_SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/*.h"
     "${CMAKE_SOURCE_DIR}/includes/*.c"
     "${CMAKE_SOURCE_DIR}/includes/*.h"
+    "${cmocka_SOURCE_DIR}/*.c"
+    "${cmocka_SOURCE_DIR}/*.h"
 )
 
 find_program(CLANG_FORMAT_EXE NAMES clang-format)
