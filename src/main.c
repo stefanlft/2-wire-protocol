@@ -14,10 +14,10 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    struct Connection conn = {.address = 0x01,
-                              .input_stream = input_stream,
-                              .output_stream = output_stream,
-                              .seq_num = 0};
+    struct data_link_t data_link = {.address = 0x01,
+                                    .input_stream = input_stream,
+                                    .output_stream = output_stream,
+                                    .seq_num = 0};
 
     struct Packet packet_out;
     packet_out.receiver_address = 0x01;
@@ -26,10 +26,10 @@ int main(int argc, char **argv) {
     packet_out.data = message;
     packet_out.length = strlen((const char *)message);
 
-    printf("send: %d\n", twp_send(&conn, &packet_out));
+    printf("send: %d\n", twp_send(&data_link, &packet_out));
 
     struct Packet packet_in;
-    printf("recv: %d\n", twp_recv_wait(&conn, &packet_in));
+    printf("recv: %d\n", twp_recv_wait(&data_link, &packet_in));
 
     printf("%s\n", packet_in.data);
 

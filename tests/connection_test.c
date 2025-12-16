@@ -12,12 +12,12 @@ static void test_connection_init(void **state) {
     FILE *dummy_in = fopen("/dev/null", "r");
     FILE *dummy_out = fopen("/dev/null", "w");
 
-    struct Connection conn;
-    connection_init(&conn, dummy_in, dummy_out);
+    struct data_link_t data_link;
+    data_link_init(&data_link, dummy_in, dummy_out);
 
-    assert_ptr_equal(conn.input_stream, dummy_in);
-    assert_ptr_equal(conn.output_stream, dummy_out);
-    assert_int_equal(conn.seq_num, 0);
+    assert_ptr_equal(data_link.input_stream, dummy_in);
+    assert_ptr_equal(data_link.output_stream, dummy_out);
+    assert_int_equal(data_link.seq_num, 0);
 
     fclose(dummy_in);
     fclose(dummy_out);
@@ -28,8 +28,8 @@ static void test_default_send(void **state) {
 
     FILE *dummy_out = fopen("/dev/null", "w");
 
-    struct Connection conn;
-    connection_init(&conn, NULL, dummy_out);
+    struct data_link_t data_link;
+    data_link_init(&data_link, NULL, dummy_out);
 
     struct Packet packet = {0};
     packet.packet_type = 1;
@@ -39,10 +39,10 @@ static void test_default_send(void **state) {
     packet.checksum = 0;
 
     // Mock the set_seq_num and set_checkstum functions
-    // will_return(conn.set_seq_num, STATUS_OK); // Mock set_seq_num return value
-    // will_return(conn.set_checkstum, STATUS_OK); // Mock set_checkstum return value
+    // will_return(data_link.set_seq_num, STATUS_OK); // Mock set_seq_num return value
+    // will_return(data_link.set_checkstum, STATUS_OK); // Mock set_checkstum return value
 
-    uint8_t result = twp_send(&conn, &packet);
+    uint8_t result = twp_send(&data_link, &packet);
     assert_int_equal(result, STATUS_OK);
 
     fclose(dummy_out);
@@ -62,13 +62,13 @@ static void test_default_recv(void **state) {
 
     rewind(dummy_in);
 
-    struct Connection conn;
-    conn.address = 1;
-    connection_init(&conn, dummy_in, NULL);  // Initialize connection with the real file stream
+    struct data_link_t data_link;
+    data_link.address = 1;
+    data_link_init(&data_link, dummy_in, NULL);  // Initialize data_link_t with the real file stream
 
     struct Packet packet;
 
-    uint8_t result = twp_recv_wait(&conn, &packet);
+    uint8_t result = twp_recv_wait(&data_link, &packet);
     assert_int_equal(result, STATUS_OK);  // Ensure the function returns success
     assert_int_equal(packet.packet_type, 0);  // Verify expected packet type
     assert_int_equal(packet.seq_num, 0);  // Verify expected sequence number
@@ -84,8 +84,8 @@ static void test_default_recv(void **state) {
 static void test_default_set_checksum(void **state) {
     (void)state; // unused variable
 
-    struct Connection conn;
-    connection_init(&conn, NULL, NULL);
+    struct data_link_t data_link;
+    data_link_init(&data_link, NULL, NULL);
 
     struct Packet packet = {0};
     packet.packet_type = 1;
@@ -93,7 +93,7 @@ static void test_default_set_checksum(void **state) {
     packet.length = 4;
     packet.data = (uint8_t *)"Test";
 
-    uint8_t result = twp_set_checksum(&conn, &packet);
+    uint8_t result = twp_set_checksum(&data_link, &packet);
     assert_int_equal(result, STATUS_OK);
     assert_int_equal(packet.checksum, crc32(0L, (const Bytef *)"Test", 4));
 }
