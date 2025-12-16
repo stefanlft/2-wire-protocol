@@ -63,11 +63,12 @@ static void test_default_recv(void **state) {
     rewind(dummy_in);
 
     struct Connection conn;
+    conn.address = 1;
     connection_init(&conn, dummy_in, NULL);  // Initialize connection with the real file stream
 
     struct Packet packet;
 
-    uint8_t result = twp_recv(&conn, &packet);
+    uint8_t result = twp_recv_wait(&conn, &packet);
     assert_int_equal(result, STATUS_OK);  // Ensure the function returns success
     assert_int_equal(packet.packet_type, 0);  // Verify expected packet type
     assert_int_equal(packet.seq_num, 0);  // Verify expected sequence number

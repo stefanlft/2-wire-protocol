@@ -14,10 +14,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    struct Connection conn;
-    connection_init(&conn, input_stream, output_stream);
+    struct Connection conn = {.address = 0x01,
+                              .input_stream = input_stream,
+                              .output_stream = output_stream,
+                              .seq_num = 0};
 
     struct Packet packet_out;
+    packet_out.receiver_address = 0x01;
     packet_out.packet_type = 0;
     uint8_t message[] = "HELLO THERE!";
     packet_out.data = message;
@@ -26,7 +29,7 @@ int main(int argc, char **argv) {
     printf("send: %d\n", twp_send(&conn, &packet_out));
 
     struct Packet packet_in;
-    printf("recv: %d\n", twp_recv(&conn, &packet_in));
+    printf("recv: %d\n", twp_recv_wait(&conn, &packet_in));
 
     printf("%s\n", packet_in.data);
 
