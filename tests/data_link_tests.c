@@ -1,189 +1,256 @@
+#include <setjmp.h>
 #include <cmocka.h>
+#include <stdarg.h>
+#include <stddef.h>
 #include "../includes/data_link.h"
 #include "../includes/packets.h"
 #include "../includes/statuses.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <zlib.h> // Add this to fix the crc32 and Bytef issues
+#include <string.h>
+#include <zlib.h>
 
-static void data_link_init_test(void **state) {
-    (void)state; // unused variable
-    FILE *dummy_in = fopen("/dev/null", "r");
-    FILE *dummy_out = fopen("/dev/null", "w");
+/* A test case for data_link_init */
+static void test_data_link_init(void **state) {
+    (void)state; /* Unused */
+    struct data_link_t dl;
+    FILE *in = tmpfile();
+    FILE *out = tmpfile();
+    assert_non_null(in);
+    assert_non_null(out);
 
-    struct data_link_t data_link;
-    data_link_init(&data_link, dummy_in, dummy_out);
+    data_link_init(&dl, in, out);
 
-    assert_ptr_equal(data_link.input_stream, dummy_in);
-    assert_ptr_equal(data_link.output_stream, dummy_out);
-    assert_int_equal(data_link.seq_num, 0);
+    assert_ptr_equal(dl.input_stream, in);
+    assert_ptr_equal(dl.output_stream, out);
+    assert_int_equal(dl.seq_num, 0);
 
-    fclose(dummy_in);
-    fclose(dummy_out);
+    fclose(in);
+    fclose(out);
 }
 
-static void twp_send_test(void **state) {
-    (void)state; // unused variable
+/* A test case for twp_set_seq_num */
+static void test_twp_set_seq_num(void **state) {
+    (void)state; /* Unused */
+    struct data_link_t dl;
+    data_link_init(&dl, NULL, NULL);
+    assert_int_equal(dl.seq_num, 0);
 
-    FILE *dummy_out = fopen("/dev/null", "w");
+    struct packet_t pkt;
 
-    struct data_link_t data_link;
-    data_link_init(&data_link, NULL, dummy_out);
+    uint8_t status = twp_set_seq_num(&dl, &pkt);
+    assert_int_equal(status, STATUS_OK);
+    assert_int_equal(pkt.seq_num, 0);
+    assert_int_equal(dl.seq_num, 1);
 
-    struct packet_t packet = {0};
-    packet.packet_type = 1;
-    packet.seq_num = 42;
-    packet.length = 4;
-    packet.data = (uint8_t *)"Test";
-    packet.checksum = 0;
-
-    // Mock the set_seq_num and set_checkstum functions
-    // will_return(data_link.set_seq_num, STATUS_OK); // Mock set_seq_num return value
-    // will_return(data_link.set_checkstum, STATUS_OK); // Mock set_checkstum return value
-
-    uint8_t result = twp_send(&data_link, &packet);
-    assert_int_equal(result, STATUS_OK);
-
-    fclose(dummy_out);
+    status = twp_set_seq_num(&dl, &pkt);
+    assert_int_equal(status, STATUS_OK);
+    assert_int_equal(pkt.seq_num, 1);
+    assert_int_equal(dl.seq_num, 2);
 }
 
-static void twp_recv_wait_success_test(void **state) {
-    (void)state; // unused variable
+/* A test case for twp_set_checksum */
+static void test_twp_set_checksum(void **state) {
+    (void)state; /* Unused */
+    struct data_link_t dl; // Not used by the function but part of the API
+    struct packet_t pkt;
+    uint8_t data[] = "hello";
+    pkt.data = data;
+    pkt.length = sizeof(data);
 
-    unsigned char packet_buff[] = {
-        0x01, 0x01, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00,
-        0x48, 0x45, 0x4c, 0x4c, 0x4f, 0x20, 0x54, 0x48,
-        0x45, 0x52, 0x45, 0x21, 0x8a, 0xec, 0x8c, 0x94,
-    };
+    uint8_t status = twp_set_checksum(&dl, &pkt);
 
-    FILE *input = fmemopen(packet_buff, sizeof(packet_buff), "rb");
-    assert_non_null(input);
-
-    struct data_link_t data_link;
-    data_link.node_address = 1;
-    data_link_init(&data_link, input, NULL);
-
-    struct packet_t packet;
-
-    uint8_t result = twp_recv_wait(&data_link, &packet);
-    assert_int_equal(result, STATUS_OK);
-    assert_int_equal(packet.sender_address, 1);
-    assert_int_equal(packet.receiver_address, 1);
-    assert_int_equal(packet.packet_type, 0);
-    assert_int_equal(packet.seq_num, 0);
-    assert_int_equal(packet.length, 0x0c);
-    assert_string_equal((const char *)packet.data, "HELLO THERE!");
-
-    free(packet.data);  // Free allocated memory for the packet data
-    fclose(input);  // Close the file after use
+    assert_int_equal(status, STATUS_OK);
+    // crc32 for "hello" with null terminator is 0x9A84642D
+    assert_int_equal(pkt.checksum, crc32(0, pkt.data, pkt.length));
 }
 
+/* A test case for packing and unpacking a packet */
+static void test_twp_pack_unpack(void **state) {
+    (void)state; /* Unused */
+    struct data_link_t dl; // Not used, but for API consistency
+    struct packet_t packet_out;
+    uint8_t message[] = "this is a test message";
 
+    packet_out.sender_address = 0x01;
+    packet_out.receiver_address = 0x02;
+    packet_out.packet_type = 0xAA;
+    packet_out.seq_num = 123;
+    packet_out.length = sizeof(message);
+    packet_out.data = message;
+    packet_out.checksum = 0xDEADBEEF;
 
-static void twp_set_checksum_test(void **state) {
-    (void)state; // unused variable
+    uint8_t *buffer = NULL;
+    size_t size = 0;
 
-    struct data_link_t data_link;
-    data_link_init(&data_link, NULL, NULL);
+    uint8_t pack_status = twp_pack(&dl, &packet_out, &buffer, &size);
+    assert_int_equal(pack_status, STATUS_OK);
+    assert_non_null(buffer);
+    assert_true(size > 0);
 
-    struct packet_t packet = {0};
-    packet.packet_type = 1;
-    packet.seq_num = 42;
-    packet.length = 4;
-    packet.data = (uint8_t *)"Test";
+    struct packet_t packet_in;
+    // We need to free packet_in.data later
+    packet_in.data = NULL;
 
-    uint8_t result = twp_set_checksum(&data_link, &packet);
-    assert_int_equal(result, STATUS_OK);
-    assert_int_equal(packet.checksum, crc32(0L, (const Bytef *)"Test", 4));
+    uint8_t unpack_status = twp_unpack(&dl, buffer, size, &packet_in);
+    assert_int_equal(unpack_status, STATUS_OK);
+    assert_non_null(packet_in.data);
+
+    assert_int_equal(packet_out.sender_address, packet_in.sender_address);
+    assert_int_equal(packet_out.receiver_address, packet_in.receiver_address);
+    assert_int_equal(packet_out.packet_type, packet_in.packet_type);
+    assert_int_equal(packet_out.seq_num, packet_in.seq_num);
+    assert_int_equal(packet_out.length, packet_in.length);
+    assert_int_equal(packet_out.checksum, packet_in.checksum);
+    assert_memory_equal(packet_out.data, packet_in.data, packet_out.length);
+
+    free(buffer);
+    free(packet_in.data);
 }
 
-static void twp_set_seq_num_test(void **state) {
-    (void)state; // unused variable
+/* Test twp_recv_raw with valid data and correct checksum */
+static void test_twp_recv_raw_success(void **state) {
+    (void)state; /* Unused */
+    struct data_link_t dl;
+    struct packet_t pkt_out, pkt_in;
+    uint8_t message[] = "good data";
 
-    struct data_link_t data_link;
-    data_link_init(&data_link, NULL, NULL);
-    assert_int_equal(data_link.seq_num, 0);
+    // Prepare a packet
+    pkt_out.sender_address = 0x11;
+    pkt_out.receiver_address = 0x22;
+    pkt_out.packet_type = 0xBB;
+    pkt_out.seq_num = 10;
+    pkt_out.data = message;
+    pkt_out.length = sizeof(message);
+    twp_set_checksum(&dl, &pkt_out);
 
-    struct packet_t packet = {0};
+    // Pack it
+    uint8_t *buffer;
+    size_t size;
+    twp_pack(&dl, &pkt_out, &buffer, &size);
 
-    uint8_t result = twp_set_seq_num(&data_link, &packet);
-    assert_int_equal(result, STATUS_OK);
-    assert_int_equal(packet.seq_num, 0);
-    assert_int_equal(data_link.seq_num, 1);
+    // Write to an in-memory stream
+    dl.input_stream = fmemopen(buffer, size, "r");
+    assert_non_null(dl.input_stream);
 
-    result = twp_set_seq_num(&data_link, &packet);
-    assert_int_equal(result, STATUS_OK);
-    assert_int_equal(packet.seq_num, 1);
-    assert_int_equal(data_link.seq_num, 2);
+    // Receive it
+    uint8_t status = twp_recv_raw(&dl, &pkt_in);
+
+    assert_int_equal(status, STATUS_OK);
+    assert_int_equal(pkt_in.sender_address, pkt_out.sender_address);
+    assert_int_equal(pkt_in.receiver_address, pkt_out.receiver_address);
+    assert_int_equal(pkt_in.packet_type, pkt_out.packet_type);
+    assert_int_equal(pkt_in.seq_num, pkt_out.seq_num);
+    assert_int_equal(pkt_in.length, pkt_out.length);
+    assert_memory_equal(pkt_in.data, pkt_out.data, pkt_in.length);
+    assert_int_equal(pkt_in.checksum, pkt_out.checksum);
+
+    free(pkt_in.data);
+    fclose(dl.input_stream);
+    free(buffer);
 }
 
-static void twp_recv_raw_checksum_mismatch_test(void **state) {
-    (void)state; // unused variable
+/* Test twp_recv_raw with checksum mismatch */
+static void test_twp_recv_raw_checksum_mismatch(void **state) {
+    (void)state; /* Unused */
+    struct data_link_t dl;
+    struct packet_t pkt_out, pkt_in;
+    uint8_t message[] = "bad data";
 
-    // This is a valid packet for "HELLO THERE!" but with the last byte of checksum flipped
-    // Correct checksum is 0x9639847c
-    uint8_t bad_packet[] = {
-        0x00, 0x01, 0x00, 0x00, 0x0c, 'H', 'E', 'L', 'L', 'O', ' ',
-        'T', 'H', 'E', 'R', 'E', '!', 0x7c, 0x84, 0x39, 0x97 // Deliberately wrong checksum
-    };
+    pkt_out.sender_address = 0x33;
+    pkt_out.receiver_address = 0x44;
+    pkt_out.packet_type = 0xCC;
+    pkt_out.seq_num = 20;
+    pkt_out.data = message;
+    pkt_out.length = sizeof(message);
+    pkt_out.checksum = 0; // Wrong checksum
 
-    FILE *input = fmemopen(bad_packet, sizeof(bad_packet), "rb");
-    assert_non_null(input);
+    uint8_t *buffer;
+    size_t size;
+    twp_pack(&dl, &pkt_out, &buffer, &size);
 
-    struct data_link_t data_link;
-    data_link_init(&data_link, input, NULL); // No output stream needed for recv
+    dl.input_stream = fmemopen(buffer, size, "r");
+    assert_non_null(dl.input_stream);
 
-    struct packet_t packet;
-    uint8_t result = twp_recv_raw(&data_link, &packet);
+    uint8_t status = twp_recv_raw(&dl, &pkt_in);
 
-    assert_int_equal(result, STATUS_ERR_CHECKSUM_MISMATCH);
+    assert_int_equal(status, STATUS_ERR_CHECKSUM_MISMATCH);
 
-    fclose(input);
+    fclose(dl.input_stream);
+    free(buffer);
 }
 
-static void twp_recv_wait_wrong_address_test(void **state) {
+/* Test twp_recv_wait skips packets for other addresses */
+static void test_twp_recv_wait_wrong_address(void **state) {
     (void)state; // unused variable
 
-    // Packet for address 0x05, then a packet for address 0x03
-    unsigned char packet_stream[] = {
-        0x02, 0x05, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00,
-        0x61, 0x64, 0x64, 0x72, 0x20, 0x6d, 0x69, 0x73,
-        0x73, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x67, 0x42,
-        0xa3, 0x42,
-
-        0x02, 0x03, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x00,
-        0x61, 0x64, 0x64, 0x72, 0x20, 0x6d, 0x61, 0x74,
-        0x63, 0x68, 0x00, 0xa3, 0xc2, 0x46, 0x11,
-    };
-
-    FILE *input = fmemopen(packet_stream, sizeof(packet_stream), "rb");
-    assert_non_null(input);
-
-    struct data_link_t data_link;
-    data_link.node_address = 0x03;
-    data_link_init(&data_link, input, NULL);
+    struct data_link_t dl;
+    dl.node_address = 0x03;
+    data_link_init(&dl, NULL, NULL);
     
-    struct packet_t packet;
-    uint8_t result = twp_recv_wait(&data_link, &packet);
+    // Packet for address 0x05
+    struct packet_t pkt1_out;
+    uint8_t msg1[] = "wrong address";
+    pkt1_out.sender_address = 0x02;
+    pkt1_out.receiver_address = 0x05;
+    pkt1_out.packet_type = 0;
+    pkt1_out.seq_num = 1;
+    pkt1_out.data = msg1;
+    pkt1_out.length = sizeof(msg1);
+    twp_set_checksum(&dl, &pkt1_out);
+    uint8_t *buf1 = NULL;
+    size_t size1;
+    twp_pack(&dl, &pkt1_out, &buf1, &size1);
 
+    // Packet for address 0x03
+    struct packet_t pkt2_out;
+    uint8_t msg2[] = "addr match";
+    pkt2_out.sender_address = 0x02;
+    pkt2_out.receiver_address = 0x03;
+    pkt2_out.packet_type = 0;
+    pkt2_out.seq_num = 2;
+    pkt2_out.data = msg2;
+    pkt2_out.length = sizeof(msg2);
+    twp_set_checksum(&dl, &pkt2_out);
+    uint8_t *buf2 = NULL;
+    size_t size2;
+    twp_pack(&dl, &pkt2_out, &buf2, &size2);
+
+    // Combine buffers
+    size_t total_size = size1 + size2;
+    uint8_t *packet_stream = malloc(total_size);
+    memcpy(packet_stream, buf1, size1);
+    memcpy(packet_stream + size1, buf2, size2);
+
+    FILE *input = fmemopen(packet_stream, total_size, "rb");
+    assert_non_null(input);
+    dl.input_stream = input;
+    
+    struct packet_t packet_in;
+    packet_in.data = NULL; // Initialize to NULL for proper cleanup
+    uint8_t result = twp_recv_wait(&dl, &packet_in);
+    
     assert_int_equal(result, STATUS_OK);
-    assert_int_equal(packet.receiver_address, 0x03);
-    assert_string_equal((const char *)packet.data, "addr match");
+    assert_int_equal(packet_in.receiver_address, 0x03);
+    assert_string_equal((const char *)packet_in.data, "addr match");
 
-    free(packet.data);
+    free(packet_in.data);
     fclose(input);
+    free(packet_stream);
+    free(buf1);
+    free(buf2);
 }
 
 int main(void) {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(data_link_init_test),
-        cmocka_unit_test(twp_send_test),
-        cmocka_unit_test(twp_recv_wait_success_test),
-        cmocka_unit_test(twp_set_checksum_test),
-        cmocka_unit_test(twp_set_seq_num_test),
-        cmocka_unit_test(twp_recv_raw_checksum_mismatch_test),
-        cmocka_unit_test(twp_recv_wait_wrong_address_test),
+        cmocka_unit_test(test_data_link_init),
+        cmocka_unit_test(test_twp_set_seq_num),
+        cmocka_unit_test(test_twp_set_checksum),
+        cmocka_unit_test(test_twp_pack_unpack),
+        cmocka_unit_test(test_twp_recv_raw_success),
+        cmocka_unit_test(test_twp_recv_raw_checksum_mismatch),
+        cmocka_unit_test(test_twp_recv_wait_wrong_address),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

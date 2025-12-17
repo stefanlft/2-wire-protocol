@@ -2,6 +2,7 @@
 #define DATA_LINK_H
 
 #include "packets.h"
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -27,5 +28,10 @@ uint8_t twp_set_checksum(struct data_link_t *data_link,
 uint8_t twp_send(struct data_link_t *data_link, struct packet_t *packet);
 uint8_t twp_recv_raw(struct data_link_t *data_link, struct packet_t *packet);
 uint8_t twp_recv_wait(struct data_link_t *data_link, struct packet_t *packet);
+
+uint8_t twp_pack(struct data_link_t *data_link, struct packet_t *packet,
+                 uint8_t **buffer, size_t *size);
+uint8_t twp_unpack(struct data_link_t *data_link, uint8_t *buffer, size_t size,
+                   struct packet_t *packet);
 
 #endif

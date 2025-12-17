@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/select.h>
 #include <unistd.h>
 #include <zlib.h>
@@ -40,21 +41,15 @@ uint8_t twp_send(struct data_link_t *data_link, struct packet_t *packet) {
 
     packet->sender_address = data_link->node_address;
 
-    fwrite(&packet->sender_address, sizeof(packet->sender_address), 1,
-           data_link->output_stream);
-    fwrite(&packet->receiver_address, sizeof(packet->receiver_address), 1,
-           data_link->output_stream);
+    uint8_t *buffer;
+    size_t size;
 
-    fwrite(&packet->packet_type, sizeof(packet->packet_type), 1,
-           data_link->output_stream);
-    fwrite(&packet->seq_num, sizeof(packet->seq_num), 1,
-           data_link->output_stream);
-    fwrite(&packet->length, sizeof(packet->length), 1,
-           data_link->output_stream);
-    fwrite(packet->data, 1, packet->length, data_link->output_stream);
-    fwrite(&packet->checksum, sizeof(packet->checksum), 1,
-           data_link->output_stream);
+    twp_pack(data_link, packet, &buffer, &size);
+
+    fwrite(buffer, size, 1, data_link->output_stream);
     fflush(data_link->output_stream);
+
+    free(buffer);
 
     return STATUS_OK;
 }
@@ -113,6 +108,81 @@ uint8_t twp_recv_wait(struct data_link_t *data_link, struct packet_t *packet) {
             return err;
         }
     } while (!check_addr(data_link, packet));
+
+    return STATUS_OK;
+}
+
+uint8_t twp_pack(struct data_link_t *data_link, struct packet_t *packet,
+                 uint8_t **buffer, size_t *size) {
+    *size = sizeof(struct packet_t) + packet->length - sizeof(packet->data);
+    *buffer = malloc(*size);
+    if (*buffer == NULL) {
+        return STATUS_ERR_MALLOC;
+    }
+
+    unsigned pos = 0;
+
+    memcpy(*buffer + pos, &packet->sender_address,
+           sizeof(packet->sender_address));
+    pos += sizeof(packet->sender_address);
+
+    memcpy(*buffer + pos, &packet->receiver_address,
+           sizeof(packet->receiver_address));
+    pos += sizeof(packet->receiver_address);
+
+    memcpy(*buffer + pos, &packet->packet_type, sizeof(packet->packet_type));
+    pos += sizeof(packet->packet_type);
+
+    memcpy(*buffer + pos, &packet->seq_num, sizeof(packet->seq_num));
+    pos += sizeof(packet->seq_num);
+
+    memcpy(*buffer + pos, &packet->length, sizeof(packet->length));
+    pos += sizeof(packet->length);
+
+    memcpy(*buffer + pos, packet->data, packet->length);
+    pos += packet->length;
+
+    memcpy(*buffer + pos, &packet->checksum, sizeof(packet->checksum));
+    pos += sizeof(packet->checksum);
+
+    return STATUS_OK;
+}
+
+uint8_t twp_unpack(struct data_link_t *data_link, uint8_t *buffer, size_t size,
+                   struct packet_t *packet) {
+    if (buffer == NULL) {
+        return STATUS_ERR_NULL_PTR;
+    }
+
+    unsigned pos = 0;
+
+    memcpy(&packet->sender_address, buffer + pos,
+           sizeof(packet->sender_address));
+    pos += sizeof(packet->sender_address);
+
+    memcpy(&packet->receiver_address, buffer + pos,
+           sizeof(packet->receiver_address));
+    pos += sizeof(packet->receiver_address);
+
+    memcpy(&packet->packet_type, buffer + pos, sizeof(packet->packet_type));
+    pos += sizeof(packet->packet_type);
+
+    memcpy(&packet->seq_num, buffer + pos, sizeof(packet->seq_num));
+    pos += sizeof(packet->seq_num);
+
+    memcpy(&packet->length, buffer + pos, sizeof(packet->length));
+    pos += sizeof(packet->length);
+
+    packet->data = malloc(packet->length);
+    if (packet->data == NULL) {
+        return STATUS_ERR_MALLOC;
+    }
+
+    memcpy(packet->data, buffer + pos, packet->length);
+    pos += packet->length;
+
+    memcpy(&packet->checksum, buffer + pos, sizeof(packet->checksum));
+    pos += sizeof(packet->checksum);
 
     return STATUS_OK;
 }
