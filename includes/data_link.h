@@ -34,4 +34,6 @@ uint8_t twp_pack(struct data_link_t *data_link, struct packet_t *packet,
 uint8_t twp_unpack(struct data_link_t *data_link, uint8_t *buffer, size_t size,
                    struct packet_t *packet);
 
+uint8_t twp_validate(struct data_link_t *data_link, struct packet_t *packet);
+
 #endif

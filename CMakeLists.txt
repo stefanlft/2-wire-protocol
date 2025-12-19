@@ -39,10 +39,9 @@ set_target_properties(${APP_NAME}_lib PROPERTIES
 # Collect *all* source/header files for format checking
 file(GLOB_RECURSE ALL_SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/*.c"
-    "${CMAKE_SOURCE_DIR}/src/*.h"
-    "${CMAKE_SOURCE_DIR}/includes/*.c"
     "${CMAKE_SOURCE_DIR}/includes/*.h"
-    "${cmocka_SOURCE_DIR}/*.c"
+    "${CMAKE_SOURCE_DIR}/tests/*.c"
+    "${CMAKE_SOURCE_DIR}/tests/*.h"
 )
 
 find_program(CLANG_FORMAT_EXE NAMES clang-format)

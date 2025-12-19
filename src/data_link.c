@@ -187,6 +187,20 @@ uint8_t twp_unpack(struct data_link_t *data_link, uint8_t *buffer, size_t size,
     return STATUS_OK;
 }
 
+uint8_t twp_validate(struct data_link_t *data_link, struct packet_t *packet) {
+    if (packet->checksum !=
+        crc32(0L, (const Bytef *)packet->data, packet->length)) {
+        return STATUS_ERR_CHECKSUM_MISMATCH;
+    }
+    if (packet->seq_num != data_link->seq_num + 1) {
+        return STATUS_ERR_SEQ_NUM_MISMATCH;
+    }
+
+    ++data_link->seq_num;
+
+    return STATUS_OK;
+}
+
 void data_link_init(struct data_link_t *c, FILE *in, FILE *out) {
     c->input_stream = in;
     c->output_stream = out;

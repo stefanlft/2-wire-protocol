@@ -1,10 +1,10 @@
-#include <setjmp.h>
-#include <cmocka.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include "../includes/data_link.h"
 #include "../includes/packets.h"
 #include "../includes/statuses.h"
+#include <cmocka.h>
+#include <setjmp.h>
+#include <stdarg.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,7 +52,7 @@ static void test_twp_set_seq_num(void **state) {
 
 /* A test case for twp_set_checksum */
 static void test_twp_set_checksum(void **state) {
-    (void)state; /* Unused */
+    (void)state;           /* Unused */
     struct data_link_t dl; // Not used by the function but part of the API
     struct packet_t pkt;
     uint8_t data[] = "hello";
@@ -68,7 +68,7 @@ static void test_twp_set_checksum(void **state) {
 
 /* A test case for packing and unpacking a packet */
 static void test_twp_pack_unpack(void **state) {
-    (void)state; /* Unused */
+    (void)state;           /* Unused */
     struct data_link_t dl; // Not used, but for API consistency
     struct packet_t packet_out;
     uint8_t message[] = "this is a test message";
@@ -188,7 +188,7 @@ static void test_twp_recv_wait_wrong_address(void **state) {
     struct data_link_t dl;
     dl.node_address = 0x03;
     data_link_init(&dl, NULL, NULL);
-    
+
     // Packet for address 0x05
     struct packet_t pkt1_out;
     uint8_t msg1[] = "wrong address";
@@ -226,11 +226,11 @@ static void test_twp_recv_wait_wrong_address(void **state) {
     FILE *input = fmemopen(packet_stream, total_size, "rb");
     assert_non_null(input);
     dl.input_stream = input;
-    
+
     struct packet_t packet_in;
     packet_in.data = NULL; // Initialize to NULL for proper cleanup
     uint8_t result = twp_recv_wait(&dl, &packet_in);
-    
+
     assert_int_equal(result, STATUS_OK);
     assert_int_equal(packet_in.receiver_address, 0x03);
     assert_string_equal((const char *)packet_in.data, "addr match");
@@ -242,6 +242,61 @@ static void test_twp_recv_wait_wrong_address(void **state) {
     free(buf2);
 }
 
+static void test_twp_validate_success(void **state) {
+    (void)state; /* not used */
+
+    struct data_link_t data_link = {.seq_num = 41};
+    struct packet_t packet;
+
+    uint8_t data[] = "test data";
+    packet.data = data;
+    packet.length = sizeof(data);
+    packet.seq_num = 42;
+    packet.checksum = crc32(0L, (const Bytef *)packet.data, packet.length);
+
+    uint8_t status = twp_validate(&data_link, &packet);
+
+    assert_int_equal(status, STATUS_OK);
+    assert_int_equal(data_link.seq_num, 42);
+}
+
+static void test_twp_validate_checksum_mismatch(void **state) {
+    (void)state; /* not used */
+
+    struct data_link_t data_link = {.seq_num = 41};
+    struct packet_t packet;
+
+    uint8_t data[] = "test data";
+    packet.data = data;
+    packet.length = sizeof(data);
+    packet.seq_num = 42;
+    packet.checksum = crc32(0L, (const Bytef *)packet.data, packet.length) +
+                      1; // Invalid checksum
+
+    uint8_t status = twp_validate(&data_link, &packet);
+
+    assert_int_equal(status, STATUS_ERR_CHECKSUM_MISMATCH);
+    assert_int_equal(data_link.seq_num, 41); // Should not be incremented
+}
+
+static void test_twp_validate_seq_num_mismatch(void **state) {
+    (void)state; /* not used */
+
+    struct data_link_t data_link = {.seq_num = 41};
+    struct packet_t packet;
+
+    uint8_t data[] = "test data";
+    packet.data = data;
+    packet.length = sizeof(data);
+    packet.seq_num = 43; // Invalid sequence number
+    packet.checksum = crc32(0L, (const Bytef *)packet.data, packet.length);
+
+    uint8_t status = twp_validate(&data_link, &packet);
+
+    assert_int_equal(status, STATUS_ERR_SEQ_NUM_MISMATCH);
+    assert_int_equal(data_link.seq_num, 41); // Should not be incremented
+}
+
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_data_link_init),
@@ -251,6 +306,9 @@ int main(void) {
         cmocka_unit_test(test_twp_recv_raw_success),
         cmocka_unit_test(test_twp_recv_raw_checksum_mismatch),
         cmocka_unit_test(test_twp_recv_wait_wrong_address),
+        cmocka_unit_test(test_twp_validate_checksum_mismatch),
+        cmocka_unit_test(test_twp_validate_seq_num_mismatch),
+        cmocka_unit_test(test_twp_validate_success),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
