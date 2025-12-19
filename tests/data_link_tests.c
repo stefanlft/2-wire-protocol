@@ -2,7 +2,6 @@
 #include "../includes/packets.h"
 #include "../includes/statuses.h"
 #include <cmocka.h>
-#include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
